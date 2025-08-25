@@ -15,7 +15,7 @@ export const register = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Optional profile image
+       
         let profileImageUrl;
         if (file) {
             const uploadedImage = await cloudinary.uploader.upload(file.path, { folder: "profiles" });
