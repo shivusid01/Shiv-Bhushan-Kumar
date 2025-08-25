@@ -1,110 +1,84 @@
-// controllers/authController.js
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
-import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-import transporter from "../config/nodemailer.js";
-
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import cloudinary from '../config/cloudinaryConfig.js';
+import { sendVerificationEmail } from '../utils/emailService.js';
 
 export const register = async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
+    try {
+        const { name, email, password } = req.body; 
+        const file = req.file;
 
-    // check existing user
-    const existingUser = await User.findOne({ email });
-    if (existingUser)
-      return res.status(400).json({ message: "Email already exists" });
+        const existingUser = await User.findOne({ email });
+        if (existingUser) 
+            return res.status(400).json({ message: "Email already exists" });
 
-    
-    const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-    
-    const profileImage = req.file?.path || null;
+        // Optional profile image
+        let profileImageUrl;
+        if (file) {
+            const uploadedImage = await cloudinary.uploader.upload(file.path, { folder: "profiles" });
+            profileImageUrl = uploadedImage.secure_url;
+        }
 
-    
-    const verificationCode = crypto.randomBytes(20).toString("hex");
+        const verificationCode = crypto.randomBytes(20).toString('hex');
 
-    
-    const user = new User({
-      name,
-      email,
-      password: hashedPassword,
-      profileImage,
-      verificationCode,
-    });
+        const newUser = await User.create({
+            name,
+            email,
+            password: hashedPassword,
+            profileImage: profileImageUrl || null,
+            verificationCode,
+            isVerified: false
+        });
 
-    await user.save();
+        await sendVerificationEmail(email, verificationCode);
 
-   
-    const verificationLink = `${process.env.FRONTEND_URL}/verify/${verificationCode}`;
-
-   
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Email Verification",
-      html: `<p>Click <a href="${verificationLink}">here</a> to verify your email.</p>`,
-    });
-
-    res
-      .status(201)
-      .json({ message: "User registered. Check your email for verification link." });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
+        res.status(201).json({ message: "User registered. Check your email to verify account." });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server Error" });
+    }
 };
-
 
 export const verifyEmail = async (req, res) => {
-  try {
-    const user = await User.findOne({ verificationCode: req.params.code });
-    if (!user)
-      return res.status(400).json({ message: "Invalid verification code" });
+    try {
+        const { code } = req.params;
+        const user = await User.findOne({ verificationCode: code });
 
-    user.isVerified = true;
-    user.verificationCode = null;
-    await user.save();
+        if (!user) 
+            return res.status(400).json({ message: "Invalid verification code" });
 
-    res.json({ message: "Email verified successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
+        user.isVerified = true;
+        user.verificationCode = undefined;
+        await user.save();
+
+        res.json({ message: "Email verified successfully!" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server Error" });
+    }
 };
 
-
 export const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+    try {
+        const { email, password } = req.body;
 
-    
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+        const user = await User.findOne({ email });
+        if (!user) 
+            return res.status(400).json({ message: "User not found" });
 
-    
-    if (!user.isVerified)
-      return res.status(400).json({ message: "Email not verified" });
+        if (!user.isVerified) 
+            return res.status(403).json({ message: "Please verify your email first" });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) 
+            return res.status(400).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "7d",
-    });
-
-    res.json({
-      message: "Login successful",
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        profileImage: user.profileImage,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
-  }
+        res.json({ message: `Hello ${user.name}`, userId: user._id });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server Error" });
+    }
 };

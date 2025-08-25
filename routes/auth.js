@@ -1,29 +1,12 @@
 import express from 'express';
-import { register, login, verifyEmail } from '../controllers/authController.js';
-import upload from '../middlewares/upload.js';
-import { protect } from '../middlewares/authMiddleware.js';
+import { register, verifyEmail, login } from '../controllers/authController.js';
+import upload from '../config/multer.js'; // Multer config
 
 const router = express.Router();
 
-
-router.post('/register', (req, res, next) => {
-  upload.single('profileImage')(req, res, function (err) {
-    if (err) {
-      return res.status(400).json({ message: 'Image upload failed', error: err.message });
-    }
-    next(); 
-  });
-}, register);
-
-
+// Profile image optional
+router.post('/register', upload.single('profileImage'), register);
 router.get('/verify/:code', verifyEmail);
-
-
 router.post('/login', login);
-
-
-router.get('/me', protect, (req, res) => {
-  res.json(req.user);
-});
 
 export default router;
