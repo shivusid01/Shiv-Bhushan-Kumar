@@ -10,31 +10,31 @@ export const register = async (req, res) => {
         const { name, email, password } = req.body; 
         const file = req.file;
 
-        console.log('📝 Registration attempt for:', email);
+        console.log(' Registration attempt for:', email);
 
         if (!name || !email || !password) {
-            console.log('❌ Missing name, email or password');
+            console.log(' Missing name, email or password');
             return res.status(400).json({ message: "Name, email and password are required" });
         }
 
         const existingUser = await User.findOne({ email });
         if (existingUser) {
-            console.log('❌ Email already exists:', email);
+            console.log(' Email already exists:', email);
             return res.status(400).json({ message: "Email already exists" });
         }
 
         const hashedPassword = await bcrypt.hash(password, 12);
-        console.log('🔐 Password hashed successfully');
+        console.log(' Password hashed successfully');
 
         let profileImageUrl;
         if (file) {
             try {
-                console.log('📸 Uploading profile image...');
+                console.log(' Uploading profile image...');
                 const uploadedImage = await cloudinary.uploader.upload(file.path, { folder: "profiles" });
                 profileImageUrl = uploadedImage.secure_url;
-                console.log('✅ Profile image uploaded:', profileImageUrl);
+                console.log(' Profile image uploaded:', profileImageUrl);
             } catch (uploadError) {
-                console.error('❌ Cloudinary upload error:', uploadError);
+                console.error(' Cloudinary upload error:', uploadError);
                 return res.status(500).json({ message: "Error uploading profile image" });
             }
         }
@@ -52,20 +52,20 @@ export const register = async (req, res) => {
             isVerified: false
         });
 
-        console.log('✅ User created in database:', newUser.email);
+        console.log(' User created in database:', newUser.email);
 
         
         let emailSent = false;
         try {
-            console.log('📧 Attempting to send verification email...');
+            console.log(' Attempting to send verification email...');
             await sendVerificationEmail(email, verificationCode);
             emailSent = true;
-            console.log('✅ Verification email sent successfully');
+            console.log(' Verification email sent successfully');
         } catch (emailError) {
-            console.error('❌ Email sending failed:', emailError);
+            console.error(' Email sending failed:', emailError);
           
             const verificationUrl = `${process.env.BASE_URL}/api/auth/verify/${verificationCode}`;
-            console.log('🔗 DEVELOPMENT MODE: Verification URL:', verificationUrl);
+            console.log(' DEVELOPMENT MODE: Verification URL:', verificationUrl);
         }
 
         res.status(201).json({ 
@@ -77,7 +77,7 @@ export const register = async (req, res) => {
             verificationCode: process.env.NODE_ENV === 'development' ? verificationCode : undefined
         });
     } catch (error) {
-        console.error('❌ Registration error:', error);
+        console.error(' Registration error:', error);
         res.status(500).json({ message: "Server Error" });
     }
 };
@@ -85,28 +85,28 @@ export const register = async (req, res) => {
 export const verifyEmail = async (req, res) => {
     try {
         const { code } = req.params;
-        console.log('🔐 Verification attempt with code:', code);
+        console.log(' Verification attempt with code:', code);
         
         const user = await User.findOne({ verificationCode: code });
-        console.log('👤 User found:', user ? user.email : 'None');
+        console.log(' User found:', user ? user.email : 'None');
 
         if (!user) {
-            console.log('❌ Invalid verification code');
+            console.log(' Invalid verification code');
             return res.status(400).json({ message: "Invalid verification code" });
         }
 
-        console.log('✅ User verification status before:', user.isVerified);
+        console.log(' User verification status before:', user.isVerified);
         
         user.isVerified = true;
         user.verificationCode = undefined;
         await user.save();
 
-        console.log('🎉 Email verified successfully for:', user.email);
-        console.log('✅ User verification status after: true');
+        console.log(' Email verified successfully for:', user.email);
+        console.log(' User verification status after: true');
         
         res.json({ message: "Email verified successfully! You can now login." });
     } catch (error) {
-        console.error('❌ Verification error:', error);
+        console.error(' Verification error:', error);
         res.status(500).json({ message: "Server Error" });
     }
 };
@@ -114,27 +114,27 @@ export const verifyEmail = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
-        console.log('🔐 Login attempt for email:', email);
+        console.log(' Login attempt for email:', email);
 
         
         if (!email || !password) {
-            console.log('❌ Missing email or password');
+            console.log(' Missing email or password');
             return res.status(400).json({ message: "Email and password are required" });
         }
 
        
         const user = await User.findOne({ email });
-        console.log('👤 User found:', user ? user.email : 'None');
+        console.log(' User found:', user ? user.email : 'None');
         
         if (!user) {
-            console.log('❌ User not found');
+            console.log(' User not found');
             return res.status(400).json({ message: "Invalid email or password" });
         }
 
         
-        console.log('✅ User verification status:', user.isVerified);
+        console.log(' User verification status:', user.isVerified);
         if (!user.isVerified) {
-            console.log('❌ Email not verified');
+            console.log(' Email not verified');
             return res.status(403).json({ message: "Please verify your email first" });
         }
 
@@ -143,11 +143,11 @@ export const login = async (req, res) => {
         console.log('🔑 Password match:', isMatch);
         
         if (!isMatch) {
-            console.log('❌ Password does not match');
+            console.log(' Password does not match');
             return res.status(400).json({ message: "Invalid email or password" });
         }
 
-        console.log('🎉 Login successful for:', user.email);
+        console.log(' Login successful for:', user.email);
         
         res.json({ 
             message: `Login successful! Welcome ${user.name}`,
@@ -157,7 +157,7 @@ export const login = async (req, res) => {
             profileImage: user.profileImage
         });
     } catch (error) {
-        console.error('❌ Login error:', error);
+        console.error(' Login error:', error);
         res.status(500).json({ message: "Server Error" });
     }
 };
@@ -191,7 +191,7 @@ export const testEmail = async (req, res) => {
 export const getAllUsers = async (req, res) => {
     try {
         const users = await User.find({});
-        console.log('📋 All users in database:');
+        console.log(' All users in database:');
         users.forEach(user => {
             console.log(`- ${user.email} (Verified: ${user.isVerified})`);
         });
